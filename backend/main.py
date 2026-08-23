@@ -1,6 +1,7 @@
 from datetime import date
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.rag.answer import AnswerEngine
@@ -12,6 +13,20 @@ app = FastAPI(
     description="Date-aware policy question answering system",
     version="1.0.0",
 )
+
+
+# Allow the local frontend to communicate with FastAPI.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 answer_engine = AnswerEngine()
 answer_generator = GroundedAnswerGenerator()
