@@ -2,11 +2,15 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = PROJECT_ROOT / "data" / "documents" / "policy-manual.md"
+
+DOCUMENTS_PATH = PROJECT_ROOT / "data" / "documents"
+
+POLICY_PATH = DOCUMENTS_PATH / "policy-manual.md"
+AMENDMENT_PATH = DOCUMENTS_PATH / "Amendment No. 2026-01.md"
 
 
 def load_policy() -> str:
-    """Load the complete policy manual as text."""
+    """Load the original policy manual."""
     if not POLICY_PATH.exists():
         raise FileNotFoundError(
             f"Policy manual not found at: {POLICY_PATH}"
@@ -15,10 +19,28 @@ def load_policy() -> str:
     return POLICY_PATH.read_text(encoding="utf-8")
 
 
-if __name__ == "__main__":
-    policy = load_policy()
+def load_amendment() -> str:
+    """Load the Day 2 policy amendment."""
+    if not AMENDMENT_PATH.exists():
+        raise FileNotFoundError(
+            f"Amendment not found at: {AMENDMENT_PATH}"
+        )
 
-    print(f"Policy loaded successfully.")
-    print(f"Characters: {len(policy)}")
-    print("\nFirst 500 characters:\n")
-    print(policy[:500])
+    return AMENDMENT_PATH.read_text(encoding="utf-8")
+
+
+def load_all_documents() -> dict[str, str]:
+    """Load every policy document in the corpus."""
+    return {
+        "policy-manual.md": load_policy(),
+        "Amendment No. 2026-01.md": load_amendment(),
+    }
+
+
+if __name__ == "__main__":
+    documents = load_all_documents()
+
+    for name, text in documents.items():
+        print(f"{name}")
+        print(f"Characters: {len(text)}")
+        print("-" * 50)

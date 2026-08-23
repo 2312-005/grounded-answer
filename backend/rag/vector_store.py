@@ -3,8 +3,8 @@ from pathlib import Path
 import chromadb
 
 from backend.rag.embeddings import EmbeddingModel
-from backend.rag.loader import load_policy
-from backend.rag.splitter import split_into_clauses
+from backend.rag.loader import load_all_documents
+from backend.rag.splitter import split_all_documents
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -26,26 +26,36 @@ class PolicyVectorStore:
         )
 
     def build_index(self) -> int:
-        """Create the ChromaDB index from the policy clauses."""
-        policy_text = load_policy()
-        clauses = split_into_clauses(policy_text)
+        """Build the vector index from the complete policy corpus."""
 
-        ids = [clause.clause_id for clause in clauses]
-        documents = [clause.text for clause in clauses]
+        documents = load_all_documents()
+        clauses = split_all_documents(documents)
 
-        embeddings = self.embedding_model.embed_texts(documents)
+        ids = [
+            f"{clause.source}:{clause.clause_id}"
+            for clause in clauses
+        ]
+
+        texts = [
+            clause.text
+            for clause in clauses
+        ]
+
+        embeddings = self.embedding_model.embed_texts(texts)
+
+        metadatas = [
+            {
+                "clause_id": clause.clause_id,
+                "source": clause.source,
+            }
+            for clause in clauses
+        ]
 
         self.collection.upsert(
             ids=ids,
-            documents=documents,
+            documents=texts,
             embeddings=embeddings,
-            metadatas=[
-                {
-                    "clause_id": clause.clause_id,
-                    "source": "policy-manual.md",
-                }
-                for clause in clauses
-            ],
+            metadatas=metadatas,
         )
 
         return len(clauses)
