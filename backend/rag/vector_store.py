@@ -25,6 +25,12 @@ class PolicyVectorStore:
             name=COLLECTION_NAME
         )
 
+        # Build the index automatically when the collection
+        # is empty. This allows a fresh clone to work without
+        # requiring a pre-generated Chroma database.
+        if self.collection.count() == 0:
+            self.build_index()
+
     def build_index(self) -> int:
         """Build the vector index from the complete policy corpus."""
 
@@ -63,7 +69,7 @@ class PolicyVectorStore:
 
 if __name__ == "__main__":
     store = PolicyVectorStore()
-    count = store.build_index()
+    count = store.collection.count()
 
     print(f"Indexed {count} policy clauses.")
     print(f"ChromaDB location: {CHROMA_PATH}")
