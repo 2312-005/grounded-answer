@@ -1,4 +1,5 @@
 from datetime import date
+import re
 
 import ollama
 
@@ -26,6 +27,25 @@ class GroundedAnswerGenerator:
         claim_date: date,
         evidence: dict,
     ) -> str:
+
+        # Income thresholds are authoritative structured data.
+        # Handle them deterministically so the LLM cannot
+        # calculate the wrong household value.
+        income_rule = self._get_income_threshold_rule(
+            evidence
+        )
+
+        if income_rule:
+            answer = self._deterministic_income_answer(
+                question,
+                income_rule,
+            )
+
+            return self._add_verified_citations(
+                answer=answer,
+                evidence=evidence,
+            )
+
         prompt = self._build_prompt(
             question=question,
             claim_date=claim_date,
@@ -65,22 +85,180 @@ class GroundedAnswerGenerator:
             evidence=evidence,
         )
 
+    def _get_income_threshold_rule(
+        self,
+        evidence: dict,
+    ) -> dict | None:
+
+        for rule in evidence.get(
+            "applicable_rules",
+            [],
+        ):
+            if rule.get("topic") != "income_threshold":
+                continue
+
+            effective_rule = rule.get(
+                "effective_rule"
+            )
+
+            if isinstance(effective_rule, dict):
+                return rule
+
+        return None
+
+    def _extract_household_size(
+        self,
+        question: str,
+    ) -> int | None:
+
+        text = question.lower()
+
+        number_words = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8,
+            "nine": 9,
+            "ten": 10,
+        }
+
+        # Numeric forms:
+        # household of 4
+        # family of 2
+        # household size 5
+        numeric_patterns = [
+            r"household\s+of\s+(\d+)",
+            r"family\s+of\s+(\d+)",
+            r"household\s+size\s*(?:of)?\s*(\d+)",
+            r"family\s+size\s*(?:of)?\s*(\d+)",
+        ]
+
+        for pattern in numeric_patterns:
+            match = re.search(
+                pattern,
+                text,
+            )
+
+            if match:
+                return int(match.group(1))
+
+        # Word forms:
+        # household of four
+        # family of two
+        # household size of five
+        word_pattern = (
+            r"(?:household|family)"
+            r"(?:\s+size)?"
+            r"\s+of\s+"
+            r"(one|two|three|four|five|six|seven|eight|nine|ten)"
+        )
+
+        match = re.search(
+            word_pattern,
+            text,
+        )
+
+        if match:
+            return number_words[
+                match.group(1)
+            ]
+
+        return None
+
+    def _deterministic_income_answer(
+        self,
+        question: str,
+        rule: dict,
+    ) -> str:
+
+        effective_rule = rule.get(
+            "effective_rule",
+            {},
+        )
+
+        household_size = self._extract_household_size(
+            question
+        )
+
+        if household_size is None:
+            return (
+                "The applicable monthly income "
+                "threshold is determined by "
+                "household size."
+            )
+
+        key = str(household_size)
+
+        # Direct household sizes 1 through 5.
+        if key in effective_rule:
+            amount = effective_rule[key]
+
+            return (
+                f"The monthly income threshold "
+                f"for a household of "
+                f"{household_size} is "
+                f"${amount:,} per month."
+            )
+
+        # Additional household members.
+        if (
+            household_size > 5
+            and "5" in effective_rule
+            and "additional_member" in effective_rule
+        ):
+            additional_members = (
+                household_size - 5
+            )
+
+            amount = (
+                effective_rule["5"]
+                + (
+                    additional_members
+                    * effective_rule[
+                        "additional_member"
+                    ]
+                )
+            )
+
+            return (
+                f"The monthly income threshold "
+                f"for a household of "
+                f"{household_size} is "
+                f"${amount:,} per month."
+            )
+
+        return (
+            "The applicable monthly income "
+            "threshold is determined by "
+            "household size."
+        )
+
     def _build_prompt(
         self,
         question: str,
         claim_date: date,
         evidence: dict,
     ) -> str:
+
         rules = []
 
-        for rule in evidence.get("applicable_rules", []):
-            effective_rule = rule.get("effective_rule")
-
+        for rule in evidence.get(
+            "applicable_rules",
+            [],
+        ):
             rules.append(
                 {
                     "topic": rule.get("topic"),
-                    "effective_rule": effective_rule,
-                    "base_clause": rule.get("base_clause"),
+                    "effective_rule": rule.get(
+                        "effective_rule"
+                    ),
+                    "base_clause": rule.get(
+                        "base_clause"
+                    ),
                     "amendment_clause": rule.get(
                         "amendment_clause"
                     ),
@@ -108,15 +286,12 @@ IMPORTANT RULES:
 1. The effective_rule field is the final applicable rule.
 2. Never replace an effective value with an older base value.
 3. Never invent units, periods, dates, or conditions.
-4. For an income_threshold rule, the values are MONTHLY
-   income thresholds. Always say "per month", never "per year".
-5. For a reporting_period rule, preserve the period in days.
-6. For a sanction_percentage rule, preserve the percentage.
-7. For an earnings_disregard rule, preserve the monthly amount.
-8. Do not perform calculations unless the effective policy
-   decision explicitly requires one.
-9. Do not create citations.
-10. Do not invent clause numbers.
+4. Income thresholds are MONTHLY.
+5. Always describe an income threshold as "per month".
+6. Never describe an income threshold as "per year".
+7. Do not calculate a threshold unless explicitly required.
+8. Do not create citations.
+9. Do not invent clause numbers.
 
 Write a concise answer in 1 to 3 sentences.
 
@@ -128,10 +303,6 @@ Return only the answer.
         answer: str,
         evidence: dict,
     ) -> str:
-        """
-        Prevent an outdated base value or incorrect time unit
-        from surviving in the final answer.
-        """
 
         for rule in evidence.get(
             "applicable_rules",
@@ -148,8 +319,8 @@ Return only the answer.
             if not effective_rule:
                 continue
 
-            # Prevent the old base value from appearing
-            # when an amendment has changed it.
+            # Prevent an outdated base value from
+            # surviving when an amendment changed it.
             if (
                 base_value
                 and effective_rule != base_value
@@ -160,8 +331,9 @@ Return only the answer.
                     rule
                 )
 
-            # Income thresholds are monthly.
+            # Income thresholds are always monthly.
             if rule.get("topic") == "income_threshold":
+
                 answer = answer.replace(
                     "per year",
                     "per month",
@@ -183,13 +355,16 @@ Return only the answer.
         self,
         rule: dict,
     ) -> str:
-        effective_rule = rule["effective_rule"]
+
+        effective_rule = rule.get(
+            "effective_rule"
+        )
 
         if rule.get("topic") == "income_threshold":
             return (
                 "The applicable monthly income "
-                "threshold is "
-                f"{effective_rule}."
+                "threshold is determined by "
+                "household size."
             )
 
         return (
@@ -202,10 +377,6 @@ Return only the answer.
         answer: str,
         evidence: dict,
     ) -> str:
-        """
-        Append citations directly from the resolved
-        evidence rather than trusting the LLM.
-        """
 
         citations = []
 
@@ -276,6 +447,7 @@ def build_test_evidence():
 
 
 if __name__ == "__main__":
+
     generator = GroundedAnswerGenerator()
 
     question = "What is the earnings disregard?"

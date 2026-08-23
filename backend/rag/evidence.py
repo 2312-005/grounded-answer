@@ -68,54 +68,131 @@ class EvidenceResolver:
         self,
         question: str,
     ) -> set[str]:
-        text = question.lower()
+        """
+        Detect the policy topic from natural-English questions.
+
+        This handles different ways a user may ask the
+        same policy question without hard-coding individual
+        questions.
+        """
+
+        text = question.lower().strip()
 
         topics = set()
 
+        # -------------------------------------------------
+        # Earnings / income disregard
+        # -------------------------------------------------
         if any(
             phrase in text
             for phrase in [
                 "earnings disregard",
                 "income disregard",
-                "earnings",
+                "earnings ignored",
+                "income ignored",
+                "how much of my earnings",
+                "how much earnings",
                 "disregarded",
             ]
         ):
             topics.add("earnings_disregard")
 
+        # -------------------------------------------------
+        # Sanction percentage / rate
+        # -------------------------------------------------
         if any(
             phrase in text
             for phrase in [
                 "sanction",
                 "sanction percentage",
                 "sanction rate",
+                "percentage deducted",
+                "percentage reduction",
+                "how much is the sanction",
             ]
         ):
             topics.add("sanction_percentage")
 
+        # -------------------------------------------------
+        # Reporting period
+        # -------------------------------------------------
         if any(
             phrase in text
             for phrase in [
                 "reporting period",
                 "report a change",
                 "reporting a change",
+                "report a change of circumstances",
                 "change of circumstances",
                 "how many days",
                 "within how many days",
+                "how long do i have to report",
+                "how long do i have to tell",
+                "when do i have to report",
             ]
         ):
             topics.add("reporting_period")
 
-        if any(
+        # -------------------------------------------------
+        # Income threshold
+        # -------------------------------------------------
+        #
+        # Instead of looking for only the exact phrase
+        # "income threshold", we identify combinations
+        # commonly used in natural English.
+        #
+        # Examples:
+        #
+        # "How much can a family of two earn?"
+        # "What is the income limit for a household of 3?"
+        # "How much income can a household of four have?"
+        # "What is the maximum income for a family?"
+        #
+        has_income_language = any(
             phrase in text
             for phrase in [
-                "income threshold",
-                "income thresholds",
-                "monthly threshold",
-                "income limit",
-                "household of",
-                "household size",
+                "income",
+                "earn",
+                "earnings",
             ]
+        )
+
+        has_threshold_language = any(
+            phrase in text
+            for phrase in [
+                "threshold",
+                "limit",
+                "maximum",
+                "how much",
+                "can have",
+                "can earn",
+                "allowed",
+                "eligible",
+            ]
+        )
+
+        has_household_language = any(
+            phrase in text
+            for phrase in [
+                "household",
+                "family",
+                "people",
+                "person",
+                "members",
+            ]
+        )
+
+        if (
+            "income threshold" in text
+            or "income thresholds" in text
+            or "income limit" in text
+            or "monthly threshold" in text
+            or "household size" in text
+            or (
+                has_income_language
+                and has_threshold_language
+                and has_household_language
+            )
         ):
             topics.add("income_threshold")
 
