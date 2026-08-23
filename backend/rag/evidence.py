@@ -56,9 +56,18 @@ class EvidenceResolver:
                 claim_date,
             )
 
+        if "income_threshold" in topics:
+            self._add_income_threshold_rule(
+                evidence,
+                claim_date,
+            )
+
         return evidence
 
-    def _detect_topics(self, question: str) -> set[str]:
+    def _detect_topics(
+        self,
+        question: str,
+    ) -> set[str]:
         text = question.lower()
 
         topics = set()
@@ -96,6 +105,19 @@ class EvidenceResolver:
             ]
         ):
             topics.add("reporting_period")
+
+        if any(
+            phrase in text
+            for phrase in [
+                "income threshold",
+                "income thresholds",
+                "monthly threshold",
+                "income limit",
+                "household of",
+                "household size",
+            ]
+        ):
+            topics.add("income_threshold")
 
         return topics
 
@@ -215,6 +237,30 @@ class EvidenceResolver:
             }
         )
 
+    def _add_income_threshold_rule(
+        self,
+        evidence: dict,
+        determination_date: date,
+    ) -> None:
+        thresholds = self.get_income_thresholds(
+            determination_date
+        )
+
+        evidence["applicable_rules"].append(
+            {
+                "topic": "income_threshold",
+                "base_clause": "§6.6.1",
+                "base_value": None,
+                "amendment_clause": thresholds.get(
+                    "source"
+                ),
+                "transition_clause": thresholds.get(
+                    "transition"
+                ),
+                "effective_rule": thresholds,
+            }
+        )
+
     def get_income_thresholds(
         self,
         determination_date: date,
@@ -243,7 +289,11 @@ if __name__ == "__main__":
     retriever = PolicyRetriever()
     resolver = EvidenceResolver()
 
-    question = "What is the earnings disregard?"
+    question = (
+        "What is the monthly income threshold "
+        "for a household of 3?"
+    )
+
     claim_date = date(2026, 4, 15)
 
     retrieved = retriever.retrieve(
