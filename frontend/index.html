@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grounded Policy Assistant</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<main class="app-container">
+
+    <header class="header">
+        <div>
+            <div class="brand">
+                <span class="brand-icon">G</span>
+                <span>Grounded Policy Assistant</span>
+            </div>
+
+            <p class="subtitle">
+                Evidence-based answers from the supplied policy documents
+            </p>
+        </div>
+
+    </header>
+
+
+    <section class="question-card">
+
+        <h1>Ask a Policy Question</h1>
+
+
+        <label for="question">Your question</label>
+
+        <textarea
+            id="question"
+            placeholder="Example: What is the earnings disregard?"
+            rows="5"
+        ></textarea>
+
+        <div class="form-row">
+
+            <button id="askButton" type="button">
+                Ask Policy
+                <span>→</span>
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <span>Checking policy evidence...</span>
+    </section>
+
+
+    <section id="result" class="result-card hidden">
+
+        <div class="result-header">
+            <h2>Answer</h2>
+        </div>
+
+        <div id="answer" class="answer"></div>
+
+
+        <div id="citationsSection" class="citations-section hidden">
+
+            <h3>Verified citations</h3>
+
+            <div id="citations"></div>
+
+        </div>
+
+
+        <div id="refusalSection" class="refusal hidden">
+
+            <h3>Policy evidence unavailable</h3>
+
+            <p id="refusalReason"></p>
+
+            <p class="refusal-help">
+                Please consult the relevant policy authority
+                for further guidance.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <footer>
+        <span>Grounded Policy RAG System</span>
+        <span>Answers are based only on supplied evidence</span>
+    </footer>
+
+</main>
+
+<script src="js/app.js"></script>
+
+</body>
+</html>
