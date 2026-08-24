@@ -4,6 +4,7 @@ Problem1:"The Grounded Answer"
 ## Requirements
 - Python 3.11 or higher
 - Git
+- Ollama - Required model: llama3.2:1b-instruct-q3_K_M
 - Internet connection for downloading Python packages and the embedding model
 
 ## Clone Repo
@@ -26,6 +27,24 @@ Problem1:"The Grounded Answer"
 9. paste this " python -m pip install -r requirements.txt " to install the requirements, ensure sucessfull installation
 
 10. In the same terminal " python -m uvicorn backend.main:app --reload " which starts the backend
+
+## Ollama Setup
+The Grounded Answer uses Ollama as the local language model service for generating grounded answers from the retrieved policy evidence.
+### 1. Install Ollama
+Download and install Ollama from:
+
+https://ollama.com/download
+
+After installation, make sure Ollama is running.
+
+### 2. Download the Required Model
+The application uses the following Ollama model:  llama3.2:1b-instruct-q3_K_M
+ 
+Open Command Prompt or PowerShell and run: " ollama pull llama3.2:1b-instruct-q3_K_M "
+
+Verify the Model - Run: " ollama list "
+The output should contain: llama3.2:1b-instruct-q3_K_M
+This confirms that the required model is installed.
 
 11. open a new terminal for frontend (window + r), it shows(eg:C:\Users\me> ) change the directory "cd downloads" it looks like this(eg: C:\Users\me\Downloads> )
 
